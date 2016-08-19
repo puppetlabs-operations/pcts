@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 
 handlers = dict()
@@ -13,16 +14,25 @@ def handler(event_type):
 
 @handler('pull_request')
 @asyncio.coroutine
-def handle_pull_request(payload):
-    print('Handling message {}'.format(payload['id']))
+def handle_pull_request(payload, id):
+    logger = logging.getLogger('{}.worker'.format(__name__))
+    logger.debug('Handling message {}'.format(id),
+                 extra={'MESSAGE_ID': id})
 
 
 @asyncio.coroutine
 def worker(queue: asyncio.Queue):
-    print('starting worker')
+    logger = logging.getLogger('{}.worker'.format(__name__))
+    logger.info('Starting worker')
     while True:
         message = yield from queue.get()
-        print('Found message {}'.format(message['id']))
+        logger.info('Processing message for event type "{}" from queue'.format(message['event']),
+                    extra={'MESSAGE_ID': message['id']})
+        logger.debug('Message body: {}'.format(message['body']),
+                     extra={'MESSAGE_ID': message['id']})
         handler_f = handlers.get(message['event'])
         if handler_f:
-            yield from handler_f(message['body'])
+            yield from handler_f(payload=message['body'], id=message['id'])
+        else:
+            logger.info('No action to take on event type "{}"'.format(message['event']),
+                        extra={'MESSAGE_ID': message['id']})
