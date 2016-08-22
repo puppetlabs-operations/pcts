@@ -1,4 +1,5 @@
 import asyncio
+import configparser
 import logging
 
 
@@ -14,14 +15,14 @@ def handler(event_type):
 
 @handler('pull_request')
 @asyncio.coroutine
-def handle_pull_request(payload, id):
+def handle_pull_request(payload, id, config):
     logger = logging.getLogger('{}.worker'.format(__name__))
     logger.debug('Handling message {}'.format(id),
                  extra={'MESSAGE_ID': id})
 
 
 @asyncio.coroutine
-def worker(queue: asyncio.Queue):
+def worker(queue: asyncio.Queue, config: configparser.ConfigParser):
     logger = logging.getLogger('{}.worker'.format(__name__))
     logger.info('Starting worker')
     while True:
@@ -32,7 +33,7 @@ def worker(queue: asyncio.Queue):
                      extra={'MESSAGE_ID': message['id']})
         handler_f = handlers.get(message['event'])
         if handler_f:
-            yield from handler_f(payload=message['body'], id=message['id'])
+            yield from handler_f(payload=message['body'], id=message['id'], config=config)
         else:
             logger.info('No action to take on event type "{}"'.format(message['event']),
                         extra={'MESSAGE_ID': message['id']})
