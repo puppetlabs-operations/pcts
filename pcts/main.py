@@ -91,7 +91,7 @@ def main():
     config = get_config(filename=args.config, puppet=args.puppet)
 
     loop = asyncio.get_event_loop()
-    queue = asyncio.Queue()
+    queue = asyncio.JoinableQueue()
 
     srv = pcts.http.start_server(loop, queue)
     worker = asyncio.async(pcts.worker.worker(queue=queue, config=config))

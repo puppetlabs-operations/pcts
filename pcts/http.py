@@ -100,5 +100,6 @@ def stop_server(server: asyncio.base_events.Server, queue: asyncio.Queue, worker
     server.close()
     logger.info('Stopped HTTP server.')
     logger.info('Attempting to stop worker.')
+    yield from queue.join()
     worker.cancel()
     logger.info('Stopped worker.')

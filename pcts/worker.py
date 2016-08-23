@@ -22,7 +22,7 @@ def handle_pull_request(payload, id, config):
 
 
 @asyncio.coroutine
-def worker(queue: asyncio.Queue, config: configparser.ConfigParser):
+def worker(queue: asyncio.JoinableQueue, config: configparser.ConfigParser):
     logger = logging.getLogger('{}.worker'.format(__name__))
     logger.info('Starting worker')
     while True:
@@ -37,3 +37,4 @@ def worker(queue: asyncio.Queue, config: configparser.ConfigParser):
         else:
             logger.info('No action to take on event type "{}"'.format(message['event']),
                         extra={'MESSAGE_ID': message['id']})
+        queue.task_done()
