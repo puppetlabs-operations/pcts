@@ -66,6 +66,9 @@ def get_config(filename, puppet):
             'port': 9200,
             'index': 'pcts',
         },
+        'github': {
+            'auth_token': '',
+        }
     }
     config = configparser.ConfigParser()
     config.read_dict(default_dict)

@@ -1,3 +1,6 @@
+import pcts.github
+import pcts.puppet
+
 import asyncio
 import configparser
 import logging
@@ -19,6 +22,19 @@ def handle_pull_request(payload, id, config):
     logger = logging.getLogger('{}.worker'.format(__name__))
     logger.debug('Handling message {}'.format(id),
                  extra={'MESSAGE_ID': id})
+    pr = pcts.github.PullRequest(payload=payload, auth_token=config['github']['auth_token'])
+    pdb = pcts.puppet.PuppetDB(config=config['puppetdb'])
+
+    pr.update_status(state='pending',
+                     target_url='https://puppet.com/',
+                     description='Testing of catalog compilation in progress',
+                     message_id=id)
+    affected_nodes = pdb.get_nodes_by_files(filenames=pr.get_files(), message_id=id)
+    report = pcts.puppet.preview_compile(nodes=affected_nodes)
+    pr.update_status(state='success',
+                     target_url='https://puppet.com/',
+                     description='All catalogs compiled successfully',
+                     message_id=id)
 
 
 @asyncio.coroutine
