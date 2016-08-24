@@ -43,6 +43,9 @@ def get_config(filename, puppet):
         'port': 9200,
         'index': 'pcts',
       },
+      'github': {
+        'auth_token': '',
+      },
     }
 
     """
@@ -57,9 +60,9 @@ def get_config(filename, puppet):
     default_dict = {
         'puppetdb': {
             'base_uri': puppetdb_default_uri,
-            'ssl_host_key': subprocess.check_output([puppet, 'config', 'print', 'hostprivkey'], universal_newlines=True),
-            'ssl_host_cert': subprocess.check_output([puppet, 'config', 'print', 'hostcert'], universal_newlines=True),
-            'ssl_ca_cert': subprocess.check_output([puppet, 'config', 'print', 'localcacert'], universal_newlines=True),
+            'ssl_host_key': subprocess.check_output([puppet, 'config', 'print', 'hostprivkey'], universal_newlines=True).rstrip(),
+            'ssl_host_cert': subprocess.check_output([puppet, 'config', 'print', 'hostcert'], universal_newlines=True).rstrip(),
+            'ssl_ca_cert': subprocess.check_output([puppet, 'config', 'print', 'localcacert'], universal_newlines=True).rstrip(),
         },
         'elasticsearch': {
             'host': 'localhost',
@@ -91,6 +94,8 @@ def main():
 
     configure_logging(args)
 
+    logger = logging.getLogger(__name__)
+
     config = get_config(filename=args.config, puppet=args.puppet)
 
     loop = asyncio.get_event_loop()
@@ -100,3 +105,4 @@ def main():
     worker = asyncio.async(pcts.worker.worker(queue=queue, config=config))
 
     loop.run_until_complete(pcts.http.stop_server(server=srv, queue=queue, worker=worker))
+    logger.info('Service shut down due to no activity.')

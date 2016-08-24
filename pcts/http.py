@@ -3,6 +3,7 @@ import json
 import http.server
 import logging
 import socket
+import traceback
 import uuid
 
 import aiohttp
@@ -34,7 +35,7 @@ def handle_github_request(work_queue: asyncio.Queue):
         logger = logging.getLogger(__name__)
 
         try:
-            raw_message_id = request.headers.get('X-GitHub-Event')
+            raw_message_id = request.headers.get('X-GitHub-Delivery')
 
             try:
                 message_id = uuid.UUID(raw_message_id)
@@ -49,8 +50,8 @@ def handle_github_request(work_queue: asyncio.Queue):
             logger.info('Received webhook for GitHub "{0}" event with id "{1}"'.format(event_type, message_id),
                          extra={'MESSAGE_ID': message_id})
             raw_body = yield from request.text()
-            logger.debug('Webhook body: {}'.format(raw_body),
-                        extra={'MESSAGE_ID': message_id})
+            # logger.debug('Webhook body: {}'.format(raw_body),
+            #             extra={'MESSAGE_ID': message_id})
             queue_message = {
                 'event': event_type,
                 'id': message_id,
@@ -60,11 +61,13 @@ def handle_github_request(work_queue: asyncio.Queue):
             response = aiohttp.web.Response(status=200, text='ok')
             logger.debug('Sending response code 200')
         except ValueError as e:
-            logger.error('Invalid JSON in request, caught error: {}'.format(e), extra={'MESSAGE_ID': message_id})
+            logger.error('Invalid JSON in request, caught error: {}'.format(traceback.format_exception(e)),
+                         extra={'MESSAGE_ID': message_id})
             response = aiohttp.web.Response(status=400, text=str(e))
         except BaseException as e:
             response = aiohttp.web.Response(status=500, text='Server error: {}'.format(e))
-            logger.error('Caught unexpected error: {}'.format(e), extra={'MESSAGE_ID': message_id})
+            logger.error('Caught unexpected error: {}'.format(traceback.format_exception(e)),
+                         extra={'MESSAGE_ID': message_id})
         return response
 
     return request_handler
@@ -86,20 +89,14 @@ def start_server(event_loop: asyncio.BaseEventLoop, work_queue: asyncio.Queue) -
 def stop_server(server: asyncio.base_events.Server, queue: asyncio.Queue, worker: asyncio.Task):
     logger = logging.getLogger(__name__)
 
-    while True:
-        yield from asyncio.sleep(5)
-        logger.debug('Attempting to shut down. Checking if work queue is empty.')
-        if queue.empty():
-            logger.debug('Work queue is empty. Checking again in 5 seconds.')
-            yield from asyncio.sleep(5)
-            if queue.empty():
-                logger.debug('Work queue is still empty.')
-                logger.info('Preparing to shut down.')
-                break
-    logger.info('Attempting to stop HTTP server.')
+    yield from asyncio.sleep(10)
+    yield from queue.join()
+
+    logger.info('System is idle. Attempting to shut down.')
+    logger.debug('Attempting to stop HTTP server.')
     server.close()
-    logger.info('Stopped HTTP server.')
-    logger.info('Attempting to stop worker.')
+    logger.debug('Stopped HTTP server.')
+    logger.debug('Attempting to stop worker.')
     yield from queue.join()
     worker.cancel()
-    logger.info('Stopped worker.')
+    logger.debug('Stopped worker.')

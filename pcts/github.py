@@ -11,8 +11,8 @@ class PullRequest:
 
     def update_status(self, state: str, target_url: str, message_id, description: str=None):
         logger = logging.getLogger(__name__)
-        logger.debug('Setting status on pull request {0} for {1} to {2}'.format(
-            self.pr_obj.id,
+        logger.info('Setting status on pull request #{0} for {1} to "{2}"'.format(
+            self.pr_obj.number,
             self.repo_obj.full_name,
             state
         ), extra={'MESSAGE_ID': message_id})
@@ -21,4 +21,4 @@ class PullRequest:
         latest_commit.create_status(state=state, description=description, target_url=target_url, context='pcts')
 
     def get_files(self):
-        return self.pr_obj.changed_files
+        return [file.filename for file in self.pr_obj.get_files()]
