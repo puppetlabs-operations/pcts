@@ -1,13 +1,70 @@
+import pcts.github
+
 import asyncio
 import json
 import logging
 import re
 import ssl
+import subprocess
 
 import aiohttp
 
 
-def preview_compile(nodes):
+@asyncio.coroutine
+def preview_compile(nodes, baseline_environment, preview_environment, config, message_id):
+    logger = logging.getLogger(__name__)
+    command = [config['executables']['puppet'], 'preview',
+               '--baseline-environment', baseline_environment,
+               '--preview-environment', preview_environment,
+               '--view', 'overview-json',
+               ]
+    if config['preview']['excludes_file']:
+        command += ['--excludes', config['preview']['excludes_file']]
+    command += nodes
+
+    logger.info('Running puppet preview for message {}'.format(message_id), extra={'MESSAGE_ID': message_id})
+    logger.debug('Using preview command: {}'.format(' '.join(command)), extra={'MESSAGE_ID': message_id})
+
+    preview_process = yield from asyncio.create_subprocess_exec(*command,
+                                                                stdout=asyncio.PIPE,
+                                                                stderr=asyncio.PIPE,
+                                                                stdin=asyncio.PIPE,
+                                                                universal_newlines=True)
+    stdout, stderr = yield from preview_process.communicate(input=nodes.encode('latin-1'))
+    return_code = yield from preview_process.wait()
+
+    logger.debug('Execution of puppet preview returned {}'.format(return_code), extra={'MESSAGE_ID': message_id})
+
+    if return_code != 0:
+        msg = "\n".join(['Execution of puppet preview failed!', stderr])
+        logger.error(msg, extra={'MESSAGE_ID': message_id})
+        raise subprocess.CalledProcessError(msg)
+
+    results = json.loads(stdout)
+    node_results = results['all_nodes']
+    success_count = len([node for node in node_results if node['error_count'] == 0])
+    failure_count = len([node for node in node_results if node['error_count'] > 0])
+
+    logger.info("\n".join([
+        '{} node catalogs compiled successfully'.format(success_count),
+        '{} node catalogs failed to compile'.format(failure_count),
+    ]), extra={'MESSAGE_ID': message_id})
+
+    # TODO: process results further
+    # TODO: send results to elasticsearch
+
+    # TODO: make this better
+    report = {
+        'success_count': success_count,
+        'failure_count': failure_count,
+        'raw': results,
+    }
+
+    return report
+
+
+@asyncio.coroutine
+def r10k_deploy_pr(pr: pcts.github.PullRequest, message_id):
     pass
 
 

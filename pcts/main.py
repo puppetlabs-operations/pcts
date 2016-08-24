@@ -46,6 +46,9 @@ def get_config(filename, puppet):
       'github': {
         'auth_token': '',
       },
+      'preview': {
+        'excludes_file': '',
+      }
     }
 
     """
@@ -71,6 +74,13 @@ def get_config(filename, puppet):
         },
         'github': {
             'auth_token': '',
+        },
+        'executables': {
+            'puppet': puppet,
+            'r10k': '/opt/puppetlabs/bin/r10k',
+        },
+        'preview': {
+            'excludes_file': None,
         }
     }
     config = configparser.ConfigParser()

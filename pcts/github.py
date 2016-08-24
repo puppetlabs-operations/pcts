@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import github
@@ -9,6 +10,7 @@ class PullRequest:
         self.repo_obj = self.gh_obj.get_repo(payload['repository']['id'])
         self.pr_obj = self.repo_obj.get_pull(payload['number'])
 
+    @asyncio.coroutine
     def update_status(self, state: str, target_url: str, message_id, description: str=None):
         logger = logging.getLogger(__name__)
         logger.info('Setting status on pull request #{0} for {1} to "{2}"'.format(
