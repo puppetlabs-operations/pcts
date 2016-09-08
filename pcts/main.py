@@ -76,11 +76,11 @@ def get_config(filename, puppet):
             'auth_token': '',
         },
         'executables': {
-            'puppet': puppet,
-            'r10k': '/opt/puppetlabs/bin/r10k',
+            'puppet': 'puppet',
+            'armature': '/opt/puppetlabs/puppet/bin/armature',
         },
         'preview': {
-            'excludes_file': None,
+            'excludes_file': '',
         }
     }
     config = configparser.ConfigParser()

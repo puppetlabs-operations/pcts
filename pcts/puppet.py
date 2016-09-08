@@ -26,11 +26,10 @@ def preview_compile(nodes, baseline_environment, preview_environment, config, me
     logger.debug('Using preview command: {}'.format(' '.join(command)), extra={'MESSAGE_ID': message_id})
 
     preview_process = yield from asyncio.create_subprocess_exec(*command,
-                                                                stdout=asyncio.PIPE,
-                                                                stderr=asyncio.PIPE,
-                                                                stdin=asyncio.PIPE,
-                                                                universal_newlines=True)
-    stdout, stderr = yield from preview_process.communicate(input=nodes.encode('latin-1'))
+                                                                stdout=asyncio.subprocess.PIPE,
+                                                                stderr=asyncio.subprocess.PIPE,
+                                                                stdin=asyncio.subprocess.PIPE)
+    stdout, stderr = yield from preview_process.communicate(input="\n".join(nodes).encode('latin-1'))
     return_code = yield from preview_process.wait()
 
     logger.debug('Execution of puppet preview returned {}'.format(return_code), extra={'MESSAGE_ID': message_id})
@@ -40,7 +39,7 @@ def preview_compile(nodes, baseline_environment, preview_environment, config, me
         logger.error(msg, extra={'MESSAGE_ID': message_id})
         raise subprocess.CalledProcessError(msg)
 
-    results = json.loads(stdout)
+    results = json.loads(stdout.decode('utf8'))
     node_results = results['all_nodes']
     success_count = len([node for node in node_results if node['error_count'] == 0])
     failure_count = len([node for node in node_results if node['error_count'] > 0])
@@ -64,8 +63,45 @@ def preview_compile(nodes, baseline_environment, preview_environment, config, me
 
 
 @asyncio.coroutine
-def r10k_deploy_pr(pr: pcts.github.PullRequest, message_id):
-    pass
+def deploy_pr(pr: pcts.github.PullRequest, config, message_id):
+    pr_ref = 'refs/pull/{}/merge'.format(pr.number)
+    environment_name = 'pr_{}'.format(pr.number)
+
+    yield from armature_deploy(ref=pr_ref,
+                               environment=environment_name,
+                               repo=pr.repo,
+                               executable=config['executables']['armature'],
+                               message_id=message_id)
+    yield from armature_deploy(ref=pr.base_ref,
+                               environment=pr.base_ref,
+                               repo=pr.repo,
+                               executable=config['executables']['armature'],
+                               message_id=message_id)
+
+
+@asyncio.coroutine
+def armature_deploy(ref, environment, repo, executable, message_id):
+    logger = logging.getLogger(__name__)
+    command = [executable, 'deploy-ref', repo, ref, environment]
+
+    logger.info('Deploying environment {} with armature'.format(environment), extra={'MESSAGE_ID': message_id})
+    logger.debug('Using armature command {}'.format(' '.join(command)), extra={'MESSAGE_ID': message_id})
+
+    preview_process = yield from asyncio.create_subprocess_exec(*command,
+                                                                stdout=asyncio.subprocess.PIPE,
+                                                                stderr=asyncio.subprocess.PIPE)
+    stdout, stderr = yield from preview_process.communicate()
+    return_code = yield from preview_process.wait()
+
+    logger.debug('Execution of armature returned {}'.format(return_code), extra={'MESSAGE_ID': message_id})
+
+    if return_code != 0:
+        msg = "\n".join(['Execution of armature failed!', stderr])
+        logger.error(msg, extra={'MESSAGE_ID': message_id})
+        raise subprocess.CalledProcessError(msg)
+
+    logger.debug('Successfully deployed environment {} with armature'.format(environment),
+                 extra={'MESSAGE_ID': message_id})
 
 
 class PuppetDB:

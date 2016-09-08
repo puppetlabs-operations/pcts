@@ -50,8 +50,6 @@ def handle_github_request(work_queue: asyncio.Queue):
             logger.info('Received webhook for GitHub "{0}" event with id "{1}"'.format(event_type, message_id),
                          extra={'MESSAGE_ID': message_id})
             raw_body = yield from request.text()
-            # logger.debug('Webhook body: {}'.format(raw_body),
-            #             extra={'MESSAGE_ID': message_id})
             queue_message = {
                 'event': event_type,
                 'id': message_id,

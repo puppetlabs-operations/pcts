@@ -24,3 +24,15 @@ class PullRequest:
 
     def get_files(self):
         return [file.filename for file in self.pr_obj.get_files()]
+
+    @property
+    def number(self):
+        return self.pr_obj.number
+
+    @property
+    def repo(self):
+        return self.repo_obj.ssh_url
+
+    @property
+    def base_ref(self):
+        return self.pr_obj.base.ref

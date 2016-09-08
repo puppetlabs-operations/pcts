@@ -32,16 +32,16 @@ def handle_pull_request(payload, id, config):
                          description='Testing of catalog compilation in progress',
                          message_id=id)
 
-        pdb_f = asyncio.ensure_future(pdb.get_nodes_by_files(filenames=pr.get_files(), message_id=id))
-        r10k_f = asyncio.ensure_future(pcts.puppet.r10k_deploy_pr(pr=pr, message_id=id))
-        yield from asyncio.wait([pdb_f, r10k_f])
+        pdb_f = asyncio.async(pdb.get_nodes_by_files(filenames=pr.get_files(), message_id=id))
+        deploy_f = asyncio.async(pcts.puppet.deploy_pr(pr=pr, config=config, message_id=id))
+        yield from asyncio.wait([pdb_f, deploy_f])
         affected_nodes = pdb_f.result()
 
         report = yield from pcts.puppet.preview_compile(nodes=affected_nodes,
-                                                                                        baseline_environment='',
-                                                                                        preview_environment='',
-                                                                                        config=config,
-                                                                                        message_id=id)
+                                                        baseline_environment=pr.base_ref,
+                                                        preview_environment='pr_{}'.format(pr.number),
+                                                        config=config,
+                                                        message_id=id)
         if report['failure_count'] == 0:
             msg = 'All {} catalogs compiled successfully'.format(report['success_count'])
             logger.info(msg, extra={'MESSAGE_ID': id})
