@@ -41,7 +41,8 @@ def get_config(filename, puppet):
       'elasticsearch': {
         'host': 'localhost',
         'port': 9200,
-        'index': 'pcts',
+        'index': 'pcts-{isoyear}.{isoweek}',
+        'dashboard': 'localhost',
       },
       'github': {
         'auth_token': '',
@@ -70,7 +71,8 @@ def get_config(filename, puppet):
         'elasticsearch': {
             'host': 'localhost',
             'port': 9200,
-            'index': 'pcts',
+            'index': 'pcts-{isoyear}.{isoweek}',
+            'dashboard': 'https://localhost/',
         },
         'github': {
             'auth_token': '',

@@ -1,3 +1,4 @@
+import pcts.elasticsearch
 import pcts.github
 import pcts.puppet
 
@@ -23,12 +24,21 @@ def handle_pull_request(payload, id, config):
     logger = logging.getLogger('{}.worker'.format(__name__))
     logger.debug('Handling message {}'.format(id),
                  extra={'MESSAGE_ID': id})
+
+    dashboard_vars = {
+        'message_id': id,
+        'pr_number': payload['number'],
+        'repo_name': payload['repository']['name'],
+        'repo_full_name': payload['repository']['full_name'],
+    }
+    uri = config['elasticsearch']['dashboard'].format(**dashboard_vars)
+    logger.debug('Using {} for GitHub status URI'.format(uri))
     try:
         pr = pcts.github.PullRequest(payload=payload, auth_token=config['github']['auth_token'])
         pdb = pcts.puppet.PuppetDB(pdb_config=config['puppetdb'])
 
         yield from pr.update_status(state='pending',
-                         target_url='https://puppet.com/',
+                         target_url=uri,
                          description='Testing of catalog compilation in progress',
                          message_id=id)
 
@@ -42,11 +52,15 @@ def handle_pull_request(payload, id, config):
                                                         preview_environment='pr_{}'.format(pr.number),
                                                         config=config,
                                                         message_id=id)
+        yield from pcts.elasticsearch.submit_report(report=report['raw'],
+                                                          pr=pr,
+                                                          es_config=config['elasticsearch'],
+                                                          message_id=id)
         if report['failure_count'] == 0:
             msg = 'All {} catalogs compiled successfully'.format(report['success_count'])
             logger.info(msg, extra={'MESSAGE_ID': id})
             yield from pr.update_status(state='success',
-                                        target_url='https://puppet.com/',
+                                        target_url=uri,
                                         description=msg,
                                         message_id=id)
         else:
@@ -56,15 +70,15 @@ def handle_pull_request(payload, id, config):
             )
             logger.info(msg, extra={'MESSAGE_ID': id})
             yield from pr.update_status(state='failure',
-                                        target_url='https://puppet.com/',
+                                        target_url=uri,
                                         description=msg,
                                         message_id=id)
     except:
         logger.error('Caught exception when trying to test catalog compilation: {}'.format(traceback.format_exc()),
                      extra={'MESSAGE_ID': id})
         yield from pr.update_status(state='error',
-                                    target_url='https://puppet.com/',
-                                    description='There was an error when trying to compile catalogs.',
+                                    target_url=uri,
+                                    description='An exception occurred when trying to compile catalogs.',
                                     message_id=id)
         raise
 
@@ -77,8 +91,6 @@ def worker(queue: asyncio.JoinableQueue, config: configparser.ConfigParser):
         message = yield from queue.get()
         logger.info('Processing message {0} of event type "{1}" from queue'.format(message['id'], message['event']),
                     extra={'MESSAGE_ID': message['id']})
-        # logger.debug('Message body: {}'.format(message['body']),
-        #              extra={'MESSAGE_ID': message['id']})
         handler_f = handlers.get(message['event'])
         if handler_f:
             try:

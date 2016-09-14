@@ -36,3 +36,7 @@ class PullRequest:
     @property
     def base_ref(self):
         return self.pr_obj.base.ref
+
+    @property
+    def updated_time(self):
+        return self.pr_obj.updated_at

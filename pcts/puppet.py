@@ -49,10 +49,6 @@ def preview_compile(nodes, baseline_environment, preview_environment, config, me
         '{} node catalogs failed to compile'.format(failure_count),
     ]), extra={'MESSAGE_ID': message_id})
 
-    # TODO: process results further
-    # TODO: send results to elasticsearch
-
-    # TODO: make this better
     report = {
         'success_count': success_count,
         'failure_count': failure_count,
